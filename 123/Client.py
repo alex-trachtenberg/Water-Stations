@@ -22,9 +22,6 @@ def main():
             }
             request = json.dumps(station_status).encode()
             s.sendto(request, SERVER_ADDRESS)
-            resp = s.recv(1024)
-            response = resp.decode()
-            print('result: ', response)
             time.sleep(FILE_READ_TIMEOUT)
 
 
