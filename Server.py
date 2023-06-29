@@ -5,7 +5,7 @@ import datetime
 import sqlite3
 
 SERVER_ADDRESS = '127.0.0.1', 54321
-MAX_CLIENTS = 100
+MAX_PENDING_CLIENTS = 20
 DB_PATH = 'data.sqlite3'
 
 
@@ -32,7 +32,7 @@ def main():
 
             with socket.socket() as accept_socket:
                 accept_socket.bind(SERVER_ADDRESS)
-                accept_socket.listen(MAX_CLIENTS)
+                accept_socket.listen(MAX_PENDING_CLIENTS)
                 print("Server is listening at {}:{}".format(*SERVER_ADDRESS))
 
                 while True:
@@ -51,28 +51,27 @@ def main():
                                 sock.close()
                                 print("client disconnected {}:{}".format(*station.addr))
                             else:
+                                last_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
                                 try:
                                     req = request.decode()
                                     req = json.loads(req)
                                     station_id_str = req['ID']
                                     alarm1_str = req['Alarm1']
                                     alarm2_str = req['Alarm2']
-                                    resp_str = station_id_str + " " + alarm1_str + " " + alarm2_str
                                     station_id = int(station_id_str)
                                     alarm1 = int(alarm1_str)
                                     alarm2 = int(alarm2_str)
+                                    with conn:
+                                        conn.execute("""
+                                                INSERT OR REPLACE INTO station_status
+                                                    VALUES (?, ?, ?, ?);
+                                                """, (station_id, last_date, alarm1, alarm2))
+                                    print("{}:{} -> {}".format(*station.addr, station_id_str + " " + alarm1_str +
+                                                               " " + alarm2_str))
                                 except json.JSONDecodeError:
-                                    resp_str = 'error: not json'
+                                    print("Error: Unable to decode using json")
                                 except ValueError:
-                                    resp_str = 'error: not integers'
-                                last_date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
-                                with conn:
-                                    conn.execute("""
-                                            INSERT OR REPLACE INTO station_status
-                                                VALUES (?, ?, ?, ?);
-                                            """, (station_id, last_date, alarm1, alarm2))
-
-                                print("{}:{} -> {}".format(*station.addr, resp_str))
+                                    print("Error! Received values are not integers!")
 
 
 if __name__ == '__main__':
